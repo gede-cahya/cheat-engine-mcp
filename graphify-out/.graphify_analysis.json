@@ -1,0 +1,215 @@
+{
+  "communities": {
+    "0": [
+      "src_main_count_matches",
+      "src_main_guarded_write_inputs",
+      "src_main_ok",
+      "src_main_run_scanmem_script",
+      "src_main_scanmem_attach_process",
+      "src_main_scanmem_freeze_value",
+      "src_main_scanmem_preview_write",
+      "src_main_scanmem_refine_scan",
+      "src_main_scanmem_scan_by_type",
+      "src_main_scanmem_scan_range",
+      "src_main_scanmem_scan_unknown",
+      "src_main_scanmem_simple_command",
+      "src_main_scanmem_write_selected",
+      "src_main_scanmem_write_value",
+      "src_main_touch_session",
+      "src_main_valid_live_pid",
+      "src_main_valid_pid",
+      "src_main_valid_value_arg",
+      "src_main_valid_value_type"
+    ],
+    "1": [
+      "src_main_dummy_target_manifest_exists",
+      "src_main_human_summary",
+      "src_main_likely_game",
+      "src_main_parse_process_line",
+      "src_main_refine_tool",
+      "src_main_request",
+      "src_main_rs",
+      "src_main_scan_tool",
+      "src_main_session",
+      "src_main_session_tool",
+      "src_main_sessions_are_one_per_pid",
+      "src_main_tools",
+      "src_main_typed_value",
+      "src_main_validates_value_types",
+      "src_main_write_requires_confirmation"
+    ],
+    "2": [
+      "src_main_call_tool",
+      "src_main_output_warning",
+      "src_main_process_info",
+      "src_main_scanmem_pick_match",
+      "src_main_scanmem_unfreeze_value",
+      "src_main_scanmem_version",
+      "src_main_session_close",
+      "src_main_tool_content",
+      "src_main_tool_err",
+      "src_main_tool_errors_are_ai_friendly",
+      "src_main_tool_ok",
+      "src_main_tool_ok_has_explain_fields"
+    ],
+    "3": [
+      "src_main_read_json",
+      "src_main_required_str",
+      "src_main_safe_name",
+      "src_main_table_add_entry",
+      "src_main_table_create",
+      "src_main_table_list_entries",
+      "src_main_table_load",
+      "src_main_table_path",
+      "src_main_table_save",
+      "src_main_write_json"
+    ],
+    "4": [
+      "examples_dummy_target_src_main_rs",
+      "src_main_error",
+      "src_main_gamestate",
+      "src_main_handle",
+      "src_main_lists_scanmem_tools",
+      "src_main_main"
+    ],
+    "5": [
+      "src_main_expire_sessions",
+      "src_main_new_session",
+      "src_main_now_secs",
+      "src_main_session_create",
+      "src_main_session_json",
+      "src_main_session_status"
+    ],
+    "6": [
+      "src_main_previews_scanmem_script",
+      "src_main_rejects_weird_scan_value",
+      "src_main_scan_args",
+      "src_main_scanmem_exact_scan",
+      "src_main_scanmem_script_preview"
+    ],
+    "7": [
+      "src_main_command_output",
+      "src_main_is_system_process",
+      "src_main_list_processes",
+      "src_main_process_search"
+    ],
+    "8": [
+      "src_main_process_suggest_target",
+      "src_main_score_process"
+    ]
+  },
+  "cohesion": {
+    "0": 0.35,
+    "1": 0.13,
+    "2": 0.23,
+    "3": 0.36,
+    "4": 0.33,
+    "5": 0.4,
+    "6": 0.4,
+    "7": 0.5,
+    "8": 1.0
+  },
+  "gods": [
+    {
+      "id": "src_main_ok",
+      "label": "ok()",
+      "degree": 41
+    },
+    {
+      "id": "src_main_call_tool",
+      "label": "call_tool()",
+      "degree": 35
+    },
+    {
+      "id": "src_main_tool_ok",
+      "label": "tool_ok()",
+      "degree": 30
+    },
+    {
+      "id": "src_main_touch_session",
+      "label": "touch_session()",
+      "degree": 14
+    },
+    {
+      "id": "src_main_valid_pid",
+      "label": "valid_pid()",
+      "degree": 13
+    },
+    {
+      "id": "src_main_run_scanmem_script",
+      "label": "run_scanmem_script()",
+      "degree": 13
+    },
+    {
+      "id": "src_main_valid_value_arg",
+      "label": "valid_value_arg()",
+      "degree": 11
+    },
+    {
+      "id": "src_main_scanmem_scan_by_type",
+      "label": "scanmem_scan_by_type()",
+      "degree": 10
+    },
+    {
+      "id": "src_main_scanmem_preview_write",
+      "label": "scanmem_preview_write()",
+      "degree": 9
+    },
+    {
+      "id": "src_main_scanmem_scan_range",
+      "label": "scanmem_scan_range()",
+      "degree": 9
+    }
+  ],
+  "surprises": [
+    {
+      "source": "main()",
+      "target": "ok()",
+      "source_files": [
+        "examples/dummy-target/src/main.rs",
+        "src/main.rs"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "main()",
+      "target": "handle()",
+      "source_files": [
+        "examples/dummy-target/src/main.rs",
+        "src/main.rs"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `ok()` connect `Rust MCP Tools` to `Rust MCP Tools`, `Rust MCP Tools`, `Rust MCP Tools`, `Rust MCP Tools`, `Rust MCP Tools`, `Rust MCP Tools`, `Rust MCP Tools`, `Rust MCP Tools`?",
+      "why": "High betweenness centrality (0.094) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `call_tool()` connect `Rust MCP Tools` to `Rust MCP Tools`, `Rust MCP Tools`, `Rust MCP Tools`, `Rust MCP Tools`, `Rust MCP Tools`, `Rust MCP Tools`, `Rust MCP Tools`, `Rust MCP Tools`?",
+      "why": "High betweenness centrality (0.051) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `main()` connect `Rust MCP Tools` to `Rust MCP Tools`, `Rust MCP Tools`?",
+      "why": "High betweenness centrality (0.051) - this node is a cross-community bridge."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `Request`, `Session`, `GameState` to the rest of the system?",
+      "why": "3 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `Rust MCP Tools` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.13 - nodes in this community are weakly interconnected."
+    }
+  ]
+}

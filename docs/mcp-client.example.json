@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "cheat-engine-mcp": {
+      "command": "/home/USER/.local/bin/cheat-engine-mcp"
+    }
+  }
+}

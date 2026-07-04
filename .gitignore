@@ -1,0 +1,5 @@
+/target/
+/examples/dummy-target/target/
+/.cheat-tables/
+.DS_Store
+*.log

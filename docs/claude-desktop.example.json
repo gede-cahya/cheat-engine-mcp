@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "scanmem": {
+      "command": "/absolute/path/to/cheat-engine-mcp"
+    }
+  }
+}
