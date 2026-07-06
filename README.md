@@ -1,261 +1,341 @@
-# cheat-engine-mcp
+# 🎮 cheat-engine-mcp
 
-MCP server ringan berbasis Rust untuk membungkus `scanmem` di Linux: scan value, refine, guarded write, process search, dan cheat table JSON.
+[![CI](https://github.com/gede-cahya/cheat-engine-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/gede-cahya/cheat-engine-mcp/actions/workflows/ci.yml)
+[![Release](https://github.com/gede-cahya/cheat-engine-mcp/actions/workflows/release.yml/badge.svg)](https://github.com/gede-cahya/cheat-engine-mcp/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Fitur
+**AI-powered game memory scanner and reverse engineering toolkit** — an MCP (Model Context Protocol) server that gives AI coding assistants direct access to `scanmem`, `gdb`, and IL2CPP reverse engineering tools.
 
-- MCP stdio: `initialize`, `tools/list`, `tools/call`.
-- Scan flow: exact, increased, decreased, changed, unchanged, unknown, range, typed value.
-- Session in-memory per PID.
-- Write safety: `confirm_write`, live PID check, preview, dry-run, max writes, backup field.
-- Process UX: search/info/suggest target, module base/RVA helper.
-- Cheat Table Lite: save/load JSON + module/RVA watchlist di `.cheat-tables/`.
-- Reverse report lokal ignored di `reverse/<game>/tools/reports/`.
-- Dummy target test di `examples/dummy-target`.
+> Turn your AI assistant into a game hacking partner. Scan memory, hook functions, search IL2CPP metadata, and modify game values — all through natural language.
 
-## Dependency OS
+---
 
-Install Rust, `scanmem`, dan `gdb`.
+## ✨ Features
+
+| Category | Tools | Description |
+|---|---|---|
+| 🔍 **Memory Scanning** | `scanmem_scan_*`, `session_*` | Exact, range, type-based, increased/decreased/changed value scanning |
+| ✏️ **Memory Writing** | `scanmem_write_*`, `scanmem_freeze_*` | Safe guarded writes with preview, dry-run, confirmation, and persistent freeze |
+| 🔬 **GDB Hooks** | `gdb_hook_*`, `gdb_probe_*` | Dynamic function hooking, breakpoint probes, disassembly preview |
+| 📖 **Memory Reading** | `memory_read_*` | Read bytes, ints, floats, and strings from process memory |
+| 🧬 **IL2CPP Reverse** | `il2cpp_*` | Search classes, methods, fields, strings, and RVA in Unity IL2CPP dumps |
+| 📊 **Cheat Tables** | `table_*` | Save/load/resolve/validate cheat entries with module+RVA tracking |
+| 📋 **Reports** | `reverse_report_*` | Create and manage local reverse engineering reports per game |
+| 🎯 **Process Utils** | `process_*`, `rva_*` | Process search, module listing, RVA/address conversion, memory maps |
+
+**72 MCP tools** in total — all accessible via natural language through any MCP-compatible AI assistant.
+
+---
+
+## 🚀 Quick Start
+
+### 1. Install Dependencies
 
 ```bash
-# Arch
+# Arch Linux
 sudo pacman -S scanmem gdb rust
 
-# Debian/Ubuntu
-sudo apt update
-sudo apt install -y scanmem gdb cargo
+# Debian / Ubuntu
+sudo apt update && sudo apt install -y scanmem gdb cargo
+
+# macOS (Homebrew) — limited support
+brew install rust
 ```
 
-## Build release
-
-Linux:
+### 2. Build & Install
 
 ```bash
-cargo build --release
-./target/release/cheat-engine-mcp
-```
-
-Windows:
-
-```powershell
-cargo build --release
-.\target\release\cheat-engine-mcp.exe
-```
-
-Catatan Windows: binary MCP bisa jalan untuk tool portable (`ping`, table/report, workspace, IL2CPP artifact search). Tool memory/process/GDB/`scanmem` masih Linux-only dan akan mengembalikan error unsupported.
-
-## Install lokal
-
-```bash
+git clone https://github.com/gede-cahya/cheat-engine-mcp.git
+cd cheat-engine-mcp
 ./install.sh
 ```
 
-Default install ke:
+This builds the release binary and installs it to `~/.local/bin/cheat-engine-mcp`.
 
-```text
-~/.local/bin/cheat-engine-mcp
-```
+### 3. Connect to Your AI Assistant
 
-Override prefix:
+Choose your AI assistant and follow [Install cheat-engine-mcp ke MCP Client](docs/INSTALL_MCP_CLIENTS.md).
+
+| AI Assistant | Config | Skill support |
+|---|---|---|
+| **Google Antigravity** | `~/.gemini/config/settings.json` | Copy `SKILL.md` into Antigravity/Gemini skills folder if enabled |
+| **Claude Code** | `.claude/settings.json` per repo | `.claude/skills/cheat-engine-mcp/SKILL.md` |
+| **Claude Desktop** | `claude_desktop_config.json` | Use project instructions / prompt installer |
+| **Cursor / Windsurf / Generic MCP** | Client MCP config file | Use the prompt installer or custom rules |
+
+**Linux one-liner:**
 
 ```bash
-PREFIX=/usr/local sudo -E ./install.sh
+git clone https://github.com/gede-cahya/cheat-engine-mcp.git
+cd cheat-engine-mcp && ./install.sh
 ```
 
-## Config MCP client
+**Windows build:**
 
-Claude Desktop / MCP client Linux:
+```powershell
+git clone https://github.com/gede-cahya/cheat-engine-mcp.git
+cd cheat-engine-mcp; cargo build --release
+```
+
+Need an agent to install it for you? Copy [docs/SKILL_INSTALL_PROMPT.md](docs/SKILL_INSTALL_PROMPT.md) into Antigravity, Claude Code, or another coding agent.
+
+---
+
+## 🔧 MCP Client Configuration
+
+All MCP-compatible clients use the same server binary. The only difference is where the config file lives.
+
+### Config Format
 
 ```json
 {
   "mcpServers": {
-    "scanmem": {
+    "cheat-engine-mcp": {
       "command": "/home/USER/.local/bin/cheat-engine-mcp"
     }
   }
 }
 ```
 
-Windows:
+### Config File Locations
+
+| Client | Linux | macOS | Windows |
+|---|---|---|---|
+| **Antigravity** | `~/.gemini/config/settings.json` | `~/.gemini/config/settings.json` | `%USERPROFILE%\.gemini\config\settings.json` |
+| **Claude Code** | `.claude/settings.json` (per-repo) | Same | Same |
+| **Claude Desktop** | `~/.config/Claude/claude_desktop_config.json` | `~/Library/Application Support/Claude/claude_desktop_config.json` | `%APPDATA%\Claude\claude_desktop_config.json` |
+| **Cursor** | `.cursor/mcp.json` (per-project) | Same | Same |
+
+### Windows Note
+
+Windows binary supports **portable tools only**: `ping`, cheat tables, workspaces, IL2CPP artifact search, and reports. Memory scanning (`scanmem`), process memory, `/proc`, and GDB tools are **Linux-only**.
 
 ```json
 {
   "mcpServers": {
-    "scanmem": {
+    "cheat-engine-mcp": {
       "command": "C:\\Tools\\cheat-engine-mcp.exe"
     }
   }
 }
 ```
 
-Contoh file tersedia di:
+---
 
-- `docs/claude-desktop.example.json`
-- `docs/mcp-client.example.json`
+## 🧠 Skill / Plugin Installation
 
-## Test manual MCP
+For the best experience, install the **skill definition** so your AI assistant knows *how* to use the tools effectively.
 
-```bash
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"scanmem_version","arguments":{}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"process_search","arguments":{"query":"dummy"}}}' | cargo run -q
-```
-
-## Dummy target
-
-Terminal 1:
+### Google Antigravity
 
 ```bash
-cd examples/dummy-target
-cargo run
+mkdir -p ~/.gemini/config/skills/cheat-engine-mcp
+cp .claude/skills/cheat-engine-mcp/SKILL.md ~/.gemini/config/skills/cheat-engine-mcp/SKILL.md
 ```
 
-Terminal 2 gunakan PID yang dicetak dummy target:
+### Claude Code
 
 ```bash
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"scanmem_scan_exact","arguments":{"pid":1234,"value":"100"}}}' | cargo run -q
+mkdir -p YOUR_REPO/.claude/skills
+cp -r .claude/skills/cheat-engine-mcp/ YOUR_REPO/.claude/skills/cheat-engine-mcp/
+cp CLAUDE.md YOUR_REPO/CLAUDE.md
 ```
 
-## GDB hook lite
+---
 
-Preview dulu, lalu start hanya dengan `confirm_hook:true`:
+## 🎯 Usage Examples
+
+Once configured, just talk to your AI assistant naturally:
+
+### Find and modify a game value
+
+```
+"Scan game TaskbarHero for health value 100, then set it to 999"
+```
+
+The AI will:
+1. `process_search` → find the game PID
+2. `session_create` → create a scan session
+3. `scanmem_scan_exact` → scan for value 100
+4. Refine with `scanmem_scan_decreased` / `scanmem_scan_unchanged`
+5. `scanmem_preview_write` → preview the write
+6. `scanmem_write_selected` → apply with safety guards
+
+### Reverse engineer a Unity/IL2CPP game
+
+```
+"Search for Hero class methods in TaskbarHero's IL2CPP dump"
+```
+
+The AI will:
+1. `workspace_set_active` → set game workspace
+2. `il2cpp_class_search` → find Hero class
+3. `il2cpp_method_search` → find relevant methods
+4. `il2cpp_field_search` → find class fields and offsets
+5. `il2cpp_find_by_rva` → map RVA addresses
+
+### Hook a game function with GDB
+
+```
+"Hook the damage function at RVA 0x958ADC in GameAssembly.dll and multiply damage by 1000"
+```
+
+The AI will:
+1. `rva_disassemble_preview` → inspect the function
+2. `gdb_hook_preview` → preview the hook script
+3. `gdb_hook_start` → attach and hook (with confirmation)
+4. Monitor via log output
+
+---
+
+## 🛠️ Tool Reference
+
+### Process & Memory
+
+| Tool | Description |
+|---|---|
+| `process_search` | Search running processes by name |
+| `process_info` | Get detailed process information |
+| `process_suggest_target` | AI-friendly target suggestion |
+| `process_list_modules` | List loaded modules/DLLs |
+| `process_read_maps` | Read `/proc/PID/maps` |
+| `process_module_base` | Get module base address |
+| `rva_to_address` | Convert RVA to absolute address |
+| `address_to_rva` | Convert absolute address to RVA |
+| `memory_read_bytes` | Read raw bytes from memory |
+| `memory_read_int` | Read integer value |
+| `memory_read_float` | Read float value |
+| `memory_read_string` | Read string from memory |
+
+### Scanning
+
+| Tool | Description |
+|---|---|
+| `session_create` | Create scan session for a PID |
+| `session_status` | Check session state |
+| `session_close` | Close session and cleanup |
+| `scanmem_scan_exact` | Scan for exact value |
+| `scanmem_scan_increased` | Filter: value increased |
+| `scanmem_scan_decreased` | Filter: value decreased |
+| `scanmem_scan_changed` | Filter: value changed |
+| `scanmem_scan_unchanged` | Filter: value unchanged |
+| `scanmem_scan_unknown` | Initial unknown value scan |
+| `scanmem_scan_range` | Scan value range |
+| `scanmem_scan_by_type` | Typed scan (int32/float/string/etc.) |
+
+### Writing & Freezing
+
+| Tool | Description |
+|---|---|
+| `scanmem_preview_write` | Preview write operation (safe) |
+| `scanmem_write_selected` | Write to matched addresses |
+| `scanmem_freeze_value` | Freeze value (one-shot or persistent) |
+| `scanmem_unfreeze_value` | Stop freezing |
+
+### GDB Hooks
+
+| Tool | Description |
+|---|---|
+| `gdb_hook_preview` | Preview single hook script |
+| `gdb_hook_start` | Start single GDB hook |
+| `gdb_hook_stop` | Stop hook and detach |
+| `gdb_hook_group_preview` | Preview multi-breakpoint hook |
+| `gdb_hook_group_start` | Start hook group |
+| `gdb_hook_group_stop` | Stop hook group |
+| `gdb_probe_preview` | Preview read-only probe |
+| `gdb_probe_start` | Start probe (auto-stops after N hits) |
+| `gdb_probe_stop` | Stop probe |
+| `rva_disassemble_preview` | Disassemble at RVA |
+| `gdb_disassemble_address` | Disassemble at absolute address |
+| `gdb_breakpoint_probe_preview` | Preview breakpoint probe |
+
+### IL2CPP Reverse Engineering
+
+| Tool | Description |
+|---|---|
+| `il2cpp_artifacts_status` | Check dump.cs availability |
+| `il2cpp_class_search` | Search classes by name |
+| `il2cpp_method_search` | Search methods by name |
+| `il2cpp_field_search` | Search fields by name |
+| `il2cpp_string_search` | Search string literals |
+| `il2cpp_script_search` | Search MonoBehaviour scripts |
+| `il2cpp_method_detail` | Get method details |
+| `il2cpp_find_by_rva` | Find method by RVA |
+| `il2cpp_related_methods` | Find related methods |
+
+### Workspace & Reports
+
+| Tool | Description |
+|---|---|
+| `workspace_list` | List all game workspaces |
+| `workspace_status` | Current workspace status |
+| `workspace_set_active` | Set active workspace |
+| `workspace_clear_active` | Clear active workspace |
+| `reverse_report_create` | Create reverse report |
+| `reverse_report_add_finding` | Add finding to report |
+| `reverse_report_list` | List reports for a game |
+
+### Cheat Tables
+
+| Tool | Description |
+|---|---|
+| `table_create` | Create new cheat table |
+| `table_add_entry` | Add entry to table |
+| `table_list_entries` | List table entries |
+| `table_resolve_entries` | Resolve RVAs to addresses |
+| `table_validate_entries` | Validate entries against live process |
+| `table_load` | Load table from file |
+| `table_save` | Save table to file |
+
+---
+
+## 🔒 Safety Design
+
+This tool is built with **defense-in-depth safety**:
+
+1. **Preview First** — All destructive operations have a preview/dry-run mode
+2. **Explicit Confirmation** — Writes require `confirm_write: true`, hooks require `confirm_hook: true`
+3. **Write Limits** — `max_writes` caps the number of addresses modified
+4. **Dry Run** — `dry_run: true` simulates without touching memory
+5. **GDB Command Whitelist** — Only `set`, `printf`, `if/else/end` allowed in hook scripts
+6. **Session Timeout** — Scan sessions auto-expire after 30 minutes
+7. **Live PID Check** — Validates process is alive before any operation
+
+---
+
+## 🏗️ Building from Source
+
+### Linux
 
 ```bash
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"gdb_hook_preview","arguments":{"pid":1234,"module":"libtarget.so","rva":"0x1234","commands":["printf \"hit\\n\""]}}}' | cargo run -q
+git clone https://github.com/gede-cahya/cheat-engine-mcp.git
+cd cheat-engine-mcp
+cargo build --release
+# Binary: ./target/release/cheat-engine-mcp
 ```
 
-Stop dengan `gdb_hook_stop` pakai `hook_id` dari `gdb_hook_start`.
+### Windows
 
-Multi-breakpoint hook pakai satu GDB script:
+```powershell
+git clone https://github.com/gede-cahya/cheat-engine-mcp.git
+cd cheat-engine-mcp
+cargo build --release
+# Binary: .\target\release\cheat-engine-mcp.exe
+```
+
+### Install to PATH
 
 ```bash
-printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"gdb_hook_group_preview","arguments":{"pid":1234,"breakpoints":[{"name":"hit-a","module":"libtarget.so","rva":"0x1234","commands":["printf \"hit a\\n\""]},{"name":"hit-b","module":"libtarget.so","rva":"0x5678","commands":["printf \"hit b\\n\""]}]}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"gdb_hook_group_start","arguments":{"pid":1234,"confirm_hook":true,"breakpoints":[{"module":"libtarget.so","rva":"0x1234","commands":["printf \"hit a\\n\""]},{"module":"libtarget.so","rva":"0x5678","commands":["printf \"hit b\\n\""]}]}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"gdb_hook_group_stop","arguments":{"group_id":"gdb-hook-group-1234-..."}}}' | cargo run -q
+./install.sh
+# Installs to ~/.local/bin/cheat-engine-mcp
+
+# Custom prefix:
+PREFIX=/usr/local sudo -E ./install.sh
 ```
 
-Probe read-only auto-stop setelah `max_hits` (default 5):
+---
 
-```bash
-printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"gdb_probe_preview","arguments":{"pid":1234,"module":"libtarget.so","rva":"0x1234","max_hits":3}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"gdb_probe_start","arguments":{"pid":1234,"module":"libtarget.so","rva":"0x1234","max_hits":3,"confirm_probe":true}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"gdb_probe_stop","arguments":{"probe_id":"gdb-probe-1234-..."}}}' | cargo run -q
-```
-
-Verifikasi alamat/RVA sebelum hook:
-
-```bash
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"process_read_maps","arguments":{"pid":1234,"limit":5}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"rva_disassemble_preview","arguments":{"pid":1234,"module":"libtarget.so","rva":"0x1234"}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"memory_read_bytes","arguments":{"pid":1234,"address":"0x7fff1234","count":16}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"gdb_breakpoint_probe_preview","arguments":{"pid":1234,"module":"libtarget.so","rva":"0x1234"}}}' | cargo run -q
-```
-
-## Local reverse artifacts
-
-Artifact reverse bisa disimpan lokal per game di `reverse/<game>/tools/`. Folder `reverse/` di-ignore, jadi dump tidak ikut GitHub.
-
-```bash
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"workspace_list","arguments":{}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"workspace_set_active","arguments":{"workspace":"game"}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"il2cpp_method_search","arguments":{"query":"Health"}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"il2cpp_class_search","arguments":{"query":"Hero"}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"il2cpp_find_by_rva","arguments":{"rva":"0x1234"}}}' | cargo run -q
-```
-
-Bisa juga per-call tanpa active workspace:
-
-```json
-{"game":"game","query":"Health"}
-```
-
-- `workspace_list`, `workspace_status`, `workspace_set_active`, `workspace_clear_active` (active workspace disimpan lokal di `reverse/.active-workspace`)
-- `il2cpp_artifacts_status`
-- `il2cpp_method_search`, `il2cpp_string_search`, `il2cpp_script_search`
-- `il2cpp_class_search`, `il2cpp_field_search`, `il2cpp_method_detail`, `il2cpp_find_by_rva`, `il2cpp_related_methods`
-
-`root` manual di bawah `reverse/` masih didukung untuk kompatibilitas.
-
-Report reverse lokal:
-
-```bash
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"reverse_report_create","arguments":{"game":"game","report":"combat","title":"Combat notes","summary":"Ringkasan aman"}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"reverse_report_add_finding","arguments":{"game":"game","report":"combat","title":"Health setter","summary":"Candidate method","module":"GameAssembly.dll","rva":"0x1234"}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"reverse_report_list","arguments":{"game":"game"}}}' | cargo run -q
-```
-
-Report tersimpan di `reverse/<game>/tools/reports/` sebagai JSON + Markdown, tetap ignored oleh Git.
-
-## Cheat table watchlist
-
-Entry table bisa simpan hasil reverse (`module` + `rva`, `method_signature`, `scan_query`) lalu resolve ke address live PID:
-
-```bash
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"table_add_entry","arguments":{"table":"game-proc","name":"health","scan":"100","value_type":"int32","module":"GameAssembly.dll","rva":"0x1234","method_signature":"Hero::Health","scan_query":"Health"}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"table_resolve_entries","arguments":{"table":"game-proc","pid":1234}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"table_validate_entries","arguments":{"table":"game-proc","pid":1234,"read_values":true}}}' | cargo run -q
-```
-
-## Freeze persistent
-
-Default `scanmem_freeze_value` write sekali. Tambah `persistent:true` untuk loop sampai `scanmem_unfreeze_value` / `session_close`.
-
-```bash
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"scanmem_freeze_value","arguments":{"pid":1234,"current_value":"100","freeze_value":"999","confirm_write":true,"max_writes":1,"persistent":true,"interval_ms":1000}}}' | cargo run -q
-printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"scanmem_unfreeze_value","arguments":{"pid":1234}}}' | cargo run -q
-```
-
-## Tool utama
-
-- `ping`
-- `scanmem_version`
-- `list_processes`
-- `process_search`, `process_info`, `process_suggest_target`
-- `process_list_modules`, `process_read_maps`, `process_module_base`, `rva_to_address`, `address_to_rva`
-- `gdb_hook_preview`, `gdb_hook_start`, `gdb_hook_stop`, `gdb_hook_group_preview`, `gdb_hook_group_start`, `gdb_hook_group_stop`, `gdb_probe_preview`, `gdb_probe_start`, `gdb_probe_stop`, `rva_disassemble_preview`, `gdb_disassemble_address`, `gdb_breakpoint_probe_preview`
-- `memory_read_bytes`, `memory_read_int`, `memory_read_float`, `memory_read_string`
-- `workspace_list`, `workspace_status`, `workspace_set_active`
-- `reverse_report_create`, `reverse_report_add_finding`, `reverse_report_list`
-- `il2cpp_artifacts_status`, `il2cpp_method_search`, `il2cpp_string_search`, `il2cpp_script_search`
-- `il2cpp_class_search`, `il2cpp_field_search`, `il2cpp_method_detail`, `il2cpp_find_by_rva`, `il2cpp_related_methods`
-- `session_create`, `session_status`, `session_close`
-- `scanmem_scan_exact`, `scanmem_scan_increased`, `scanmem_scan_decreased`, `scanmem_scan_changed`, `scanmem_scan_unchanged`
-- `scanmem_scan_by_type`, `scanmem_scan_range`, `scanmem_scan_unknown`
-- `scanmem_preview_write`, `scanmem_write_selected`, `scanmem_freeze_value`, `scanmem_unfreeze_value`
-- `table_create`, `table_add_entry`, `table_resolve_entries`, `table_validate_entries`, `table_load`, `table_save`, `table_list_entries`
-
-## Troubleshooting permission Linux
-
-`scanmem` perlu permission untuk membaca/menulis memory process lain.
-
-Cek ptrace:
-
-```bash
-cat /proc/sys/kernel/yama/ptrace_scope
-```
-
-Untuk development sementara:
-
-```bash
-sudo sysctl kernel.yama.ptrace_scope=0
-```
-
-Balikkan default lebih aman:
-
-```bash
-sudo sysctl kernel.yama.ptrace_scope=1
-```
-
-Jika tetap gagal:
-
-- jalankan MCP dan target dengan user yang sama;
-- jangan target process system/root tanpa izin;
-- pastikan PID masih hidup;
-- install `scanmem` dan cek `scanmem --version`;
-- gunakan `scanmem_preview_write` dan `dry_run:true` sebelum write nyata.
-
-## Testing
+## 🧪 Testing
 
 ```bash
 cargo fmt --check
@@ -264,3 +344,111 @@ cargo check
 cargo build --release
 (cd examples/dummy-target && cargo check)
 ```
+
+### Manual MCP Test
+
+```bash
+# Initialize
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | cargo run -q
+
+# List tools
+printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | cargo run -q
+
+# Ping
+printf '%s\n' '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"ping","arguments":{}}}' | cargo run -q
+```
+
+### Dummy Target
+
+```bash
+# Terminal 1: Start dummy target
+cd examples/dummy-target && cargo run
+
+# Terminal 2: Scan with PID from terminal 1
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"scanmem_scan_exact","arguments":{"pid":PID,"value":"100"}}}' | cargo run -q
+```
+
+---
+
+## 🐧 Linux Troubleshooting
+
+### ptrace Permission
+
+```bash
+# Check current setting
+cat /proc/sys/kernel/yama/ptrace_scope
+
+# Allow ptrace (for development)
+sudo sysctl kernel.yama.ptrace_scope=0
+
+# Restore default (more secure)
+sudo sysctl kernel.yama.ptrace_scope=1
+```
+
+### Common Issues
+
+| Problem | Solution |
+|---|---|
+| `scanmem` not found | Install: `sudo apt install scanmem` or `sudo pacman -S scanmem` |
+| `gdb` not found | Install: `sudo apt install gdb` or `sudo pacman -S gdb` |
+| Permission denied | Run MCP and target as same user; check ptrace_scope |
+| PID not found | Ensure target process is running; check with `pgrep` |
+| Too many matches | Use refine scans (increased/decreased/unchanged) |
+
+---
+
+## 📁 Project Structure
+
+```
+cheat-engine-mcp/
+├── src/main.rs              # MCP server (single-file, 72 tools)
+├── Cargo.toml               # Rust project config
+├── install.sh               # Linux install script
+├── install-antigravity.sh   # Antigravity one-click installer
+├── install-antigravity.ps1  # Antigravity Windows installer
+├── install-claude-code.sh   # Claude Code one-click installer
+├── install-claude-code.ps1  # Claude Code Windows installer
+├── skills/
+│   └── antigravity/         # Antigravity skill definition
+│       ├── SKILL.md
+│       └── AGENTS.md
+├── .claude/
+│   └── skills/
+│       └── cheat-engine-mcp/  # Claude Code skill definition
+│           └── SKILL.md
+├── docs/
+│   ├── SETUP_ANTIGRAVITY.md
+│   ├── SETUP_CLAUDE_CODE.md
+│   ├── SETUP_CLAUDE_DESKTOP.md
+│   ├── SETUP_CURSOR.md
+│   ├── SETUP_GENERIC.md
+│   ├── RULES_INSTALL.md
+│   ├── RELEASE.md
+│   └── *.example.json
+├── examples/
+│   └── dummy-target/        # Test target for scanning
+├── reverse/                 # Local reverse artifacts (gitignored)
+├── .cheat-tables/           # Local cheat tables (gitignored)
+├── .github/workflows/       # CI + Release automation
+├── CLAUDE.md                # Claude Code project rules
+├── README.md
+├── ROADMAP.md
+└── LICENSE
+```
+
+---
+
+## 📜 License
+
+[MIT License](LICENSE) © gede-cahya
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repo
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Run tests (`cargo fmt --check && cargo test && cargo check`)
+4. Commit your changes (`git commit -m 'Add amazing feature'`)
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request

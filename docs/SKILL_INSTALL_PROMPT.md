@@ -1,26 +1,61 @@
-# Prompt install skill cheat-engine-mcp
+# Prompt installer skill + MCP cheat-engine-mcp
+
+Copy prompt ini ke Antigravity, Claude Code, Claude Desktop, Cursor, Windsurf, atau agent lain yang bisa mengubah file lokal.
+
+## Linux installer prompt
 
 ```text
-Install skill project ini:
+Kamu adalah installer agent. Install cheat-engine-mcp MCP server dan skill-nya dengan aman.
 
-1. Copy folder:
-   .claude/skills/cheat-engine-mcp/
-   ke repo target dengan path yang sama.
+Target repo: https://github.com/gede-cahya/cheat-engine-mcp
+OS: Linux
 
-2. Copy/merge CLAUDE.md ini ke repo target:
-
-# cheat-engine-mcp project rules
-
-- Automatically use the `cheat-engine-mcp` skill for requests about operating, reverse-engineering, testing, validating, installing, configuring, packaging, releasing, or troubleshooting this repo or its MCP tools.
-- Keep memory/process actions authorized and safe: preview/read-only first; real writes require `confirm_write:true`, `max_writes`, and preferably `dry_run:true` first.
-- GDB attach/hook/probe requires preview first, then explicit `confirm_hook:true` or `confirm_probe:true`.
-- Do not commit or expose local artifacts under `reverse/` or `.cheat-tables/`.
-- For code changes, run at least: `cargo fmt --check`, `cargo test`, `cargo check`, and `git diff --check`.
-
-3. Restart Claude Code di repo itu.
-
-4. Test:
-   “test semua tools cheat-engine-mcp”
+Langkah wajib:
+1. Cek dependency: git, cargo, scanmem, gdb. Jika apt tersedia jalankan:
+   sudo apt update && sudo apt install -y git cargo scanmem gdb
+   Jika pacman tersedia jalankan:
+   sudo pacman -S --needed git rust scanmem gdb
+2. Clone atau update repo:
+   git clone https://github.com/gede-cahya/cheat-engine-mcp.git ~/cheat-engine-mcp
+   jika folder sudah ada: cd ~/cheat-engine-mcp && git pull
+3. Build/install:
+   cd ~/cheat-engine-mcp && ./install.sh
+4. Tambahkan MCP server bernama "cheat-engine-mcp" ke config client saat ini dengan command:
+   ~/.local/bin/cheat-engine-mcp
+5. Jika client mendukung skill, install skill dari:
+   ~/cheat-engine-mcp/.claude/skills/cheat-engine-mcp/SKILL.md
+6. Restart client dan test tool ping/list tools. Jangan attach ke proses game, jangan write memory, jangan hook GDB saat test.
 ```
 
-Skipped: global install; add symlink ke `~/.claude/skills/cheat-engine-mcp` kalau mau aktif di semua repo.
+## Windows installer prompt
+
+```text
+Kamu adalah installer agent. Install cheat-engine-mcp MCP server dan skill-nya dengan aman.
+
+Target repo: https://github.com/gede-cahya/cheat-engine-mcp
+OS: Windows
+
+Langkah wajib:
+1. Pastikan Git dan Rust/Cargo tersedia. Jika winget tersedia:
+   winget install --id Git.Git -e
+   winget install --id Rustlang.Rustup -e
+2. Clone atau update repo:
+   git clone https://github.com/gede-cahya/cheat-engine-mcp.git $env:USERPROFILE\cheat-engine-mcp
+   jika folder sudah ada: cd $env:USERPROFILE\cheat-engine-mcp; git pull
+3. Build dan copy binary:
+   cd $env:USERPROFILE\cheat-engine-mcp
+   cargo build --release
+   New-Item -ItemType Directory -Force C:\Tools | Out-Null
+   Copy-Item .\target\release\cheat-engine-mcp.exe C:\Tools\cheat-engine-mcp.exe
+4. Tambahkan MCP server bernama "cheat-engine-mcp" ke config client saat ini dengan command:
+   C:\Tools\cheat-engine-mcp.exe
+5. Jika client mendukung skill, install/copy skill dari:
+   $env:USERPROFILE\cheat-engine-mcp\.claude\skills\cheat-engine-mcp\SKILL.md
+6. Restart client dan test tool ping/list tools. Ingat: Windows hanya portable mode; scanmem, /proc memory scan, dan GDB attach adalah Linux-only.
+```
+
+## Prompt pemakaian setelah install
+
+```text
+Gunakan skill cheat-engine-mcp. Mulai dengan read-only: ping server, cari proses target, tampilkan workspace/report/cheat-table yang sudah ada, lalu buat rencana. Jangan write memory atau hook GDB sebelum preview dan konfirmasi eksplisit.
+```
