@@ -51,7 +51,7 @@ Tujuan: scan tidak selalu mulai dari nol.
 - [x] Timeout session otomatis
 - [x] Satu session aktif per process
 
-Catatan: session saat ini in-memory di proses MCP; belum menjaga child `scanmem` interaktif hidup terus.
+Catatan: session menjaga satu child `scanmem` interaktif per PID; state tetap hilang saat proses MCP exit.
 
 ## Phase 4 — Write Safety
 
@@ -73,7 +73,7 @@ Tool target:
 - [x] `scanmem_freeze_value`
 - [x] `scanmem_unfreeze_value`
 
-Catatan: freeze saat ini marker session + write sekali; belum background loop persistent.
+Catatan: freeze default write sekali; `persistent:true` menjalankan loop kecil sampai `scanmem_unfreeze_value` / `session_close`.
 
 ## Phase 5 — Value Type Support
 
@@ -253,10 +253,11 @@ Tujuan: satu folder per game di `reverse/<game>/tools`, bukan hardcoded game ter
 - [x] `workspace_list`
 - [x] `workspace_status`
 - [x] `workspace_set_active`
+- [x] `workspace_clear_active`
 - [x] Root artifact pakai `game` / `workspace`, bukan path manual
 - [x] Auto-detect `dump.cs`, `script.json`, `stringliteral.json`
 
-Catatan: active workspace masih in-memory di proses MCP; artifact tetap lokal ignored di `reverse/`.
+Catatan: active workspace disimpan di `reverse/.active-workspace`; artifact tetap lokal ignored di `reverse/`.
 
 Alasan: MCP harus enak dipakai lintas game, bukan cuma satu target.
 

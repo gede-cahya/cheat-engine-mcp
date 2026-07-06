@@ -7,12 +7,18 @@ use std::fs;
 use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const SESSION_TIMEOUT_SECS: u64 = 30 * 60;
 const OUT_MAX: usize = 8000;
 const SM_DONE: &str = "__SM_DONE__";
 const ARTIFACT_ROOT: &str = "reverse";
+const ACTIVE_WORKSPACE_FILE: &str = "reverse/.active-workspace";
 const ARTIFACT_FILES: [&str; 3] = ["dump.cs", "script.json", "stringliteral.json"];
 const ARTIFACT_PREVIEW_MAX: usize = 240;
 const SCRIPT_JSON_MAX_BYTES: u64 = 256 * 1024 * 1024;
@@ -46,6 +52,20 @@ impl Drop for ScanmemProc {
     }
 }
 
+struct FreezeLoop {
+    stop: Arc<AtomicBool>,
+    thread: Option<JoinHandle<()>>,
+}
+
+impl Drop for FreezeLoop {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Relaxed);
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
 struct Session {
     pid: u64,
     created_at: u64,
@@ -54,6 +74,7 @@ struct Session {
     last_output: String,
     last_match_count: usize,
     frozen_value: Option<String>,
+    freeze_loop: Option<FreezeLoop>,
     proc: Option<ScanmemProc>,
 }
 
@@ -88,7 +109,7 @@ fn new_state() -> AppState {
     AppState {
         sessions: Sessions::new(),
         hooks: Hooks::new(),
-        active_workspace: None,
+        active_workspace: load_active_workspace(),
     }
 }
 
@@ -160,7 +181,7 @@ fn tools() -> Value {
         session_tool("session_close", "Close an in-memory scan session for a PID."),
         { "name": "scanmem_preview_write", "description": "Preview a guarded write before changing memory.", "inputSchema": { "type": "object", "properties": { "pid": { "type": "integer" }, "current_value": { "type": "string" }, "new_value": { "type": "string" }, "max_writes": { "type": "integer" } }, "required": ["pid", "current_value", "new_value"] } },
         { "name": "scanmem_write_selected", "description": "Write a new value after guard checks. Requires confirm_write=true and a live PID.", "inputSchema": { "type": "object", "properties": { "pid": { "type": "integer" }, "current_value": { "type": "string" }, "new_value": { "type": "string" }, "confirm_write": { "type": "boolean" }, "max_writes": { "type": "integer" }, "dry_run": { "type": "boolean" } }, "required": ["pid", "current_value", "new_value", "confirm_write"] } },
-        { "name": "scanmem_freeze_value", "description": "Guarded freeze marker: writes value once and stores frozen state in session. Requires confirm_write=true.", "inputSchema": { "type": "object", "properties": { "pid": { "type": "integer" }, "current_value": { "type": "string" }, "freeze_value": { "type": "string" }, "confirm_write": { "type": "boolean" }, "max_writes": { "type": "integer" }, "dry_run": { "type": "boolean" } }, "required": ["pid", "current_value", "freeze_value", "confirm_write"] } },
+        { "name": "scanmem_freeze_value", "description": "Guarded freeze: write once, or keep writing selected matches when persistent=true. Requires confirm_write=true.", "inputSchema": { "type": "object", "properties": { "pid": { "type": "integer" }, "current_value": { "type": "string" }, "freeze_value": { "type": "string" }, "confirm_write": { "type": "boolean" }, "max_writes": { "type": "integer" }, "dry_run": { "type": "boolean" }, "persistent": { "type": "boolean" }, "interval_ms": { "type": "integer" } }, "required": ["pid", "current_value", "freeze_value", "confirm_write"] } },
         { "name": "scanmem_unfreeze_value", "description": "Clear frozen state for a PID session.", "inputSchema": { "type": "object", "properties": { "pid": { "type": "integer" } }, "required": ["pid"] } },
         { "name": "scanmem_scan_by_type", "description": "Scan value with a declared value_type: int32, int64, float, double, string, or hex.", "inputSchema": { "type": "object", "properties": { "pid": { "type": "integer" }, "value": { "type": "string" }, "value_type": { "type": "string" } }, "required": ["pid", "value", "value_type"] } },
         { "name": "scanmem_scan_range", "description": "Scan a numeric range as min..max.", "inputSchema": { "type": "object", "properties": { "pid": { "type": "integer" }, "min": { "type": "string" }, "max": { "type": "string" }, "value_type": { "type": "string" } }, "required": ["pid", "min", "max"] } },
@@ -191,7 +212,8 @@ fn tools() -> Value {
         { "name": "memory_read_string", "description": "Read a bounded NUL-terminated string from a live readable process mapping.", "inputSchema": { "type": "object", "properties": { "pid": { "type": "integer" }, "address": { "type": "string" }, "max_bytes": { "type": "integer" } }, "required": ["pid", "address"] } },
         { "name": "workspace_list", "description": "List game workspaces under reverse/ and their IL2CPP artifact status.", "inputSchema": { "type": "object", "properties": {} } },
         { "name": "workspace_status", "description": "Show IL2CPP artifact status for a workspace/game, active workspace, or root.", "inputSchema": { "type": "object", "properties": { "workspace": { "type": "string" }, "game": { "type": "string" }, "root": { "type": "string" } } } },
-        { "name": "workspace_set_active", "description": "Set the in-memory active game workspace for IL2CPP tools.", "inputSchema": { "type": "object", "properties": { "workspace": { "type": "string" }, "game": { "type": "string" } } } },
+        { "name": "workspace_set_active", "description": "Set and persist the active game workspace for IL2CPP tools.", "inputSchema": { "type": "object", "properties": { "workspace": { "type": "string" }, "game": { "type": "string" } } } },
+        { "name": "workspace_clear_active", "description": "Clear the persisted active game workspace.", "inputSchema": { "type": "object", "properties": {} } },
         { "name": "reverse_report_create", "description": "Create a local ignored reverse report JSON and Markdown summary.", "inputSchema": { "type": "object", "properties": { "workspace": { "type": "string" }, "game": { "type": "string" }, "root": { "type": "string" }, "report": { "type": "string" }, "title": { "type": "string" }, "summary": { "type": "string" } }, "required": ["title"] } },
         { "name": "reverse_report_add_finding", "description": "Append a sanitized finding to a local ignored reverse report.", "inputSchema": { "type": "object", "properties": { "workspace": { "type": "string" }, "game": { "type": "string" }, "root": { "type": "string" }, "report": { "type": "string" }, "title": { "type": "string" }, "summary": { "type": "string" }, "severity": { "type": "string" }, "category": { "type": "string" }, "source": { "type": "string" }, "module": { "type": "string" }, "rva": { "type": "string" }, "address": { "type": "string" }, "class": { "type": "string" }, "method": { "type": "string" }, "field": { "type": "string" }, "offset": { "type": "string" }, "notes": { "type": "string" } }, "required": ["report", "title", "summary"] } },
         { "name": "reverse_report_list", "description": "List local ignored reverse reports for one workspace.", "inputSchema": { "type": "object", "properties": { "workspace": { "type": "string" }, "game": { "type": "string" }, "root": { "type": "string" } } } },
@@ -305,6 +327,7 @@ fn call_tool(id: Option<Value>, params: Value, state: &mut AppState) -> Value {
         "workspace_list" => workspace_list(state.active_workspace.as_deref()),
         "workspace_status" => workspace_status(&args, state.active_workspace.as_deref()),
         "workspace_set_active" => workspace_set_active(&args, state),
+        "workspace_clear_active" => workspace_clear_active(state),
         "reverse_report_create" => reverse_report_create(&args, state.active_workspace.as_deref()),
         "reverse_report_add_finding" => {
             reverse_report_add_finding(&args, state.active_workspace.as_deref())
@@ -546,29 +569,114 @@ fn scanmem_write_selected(args: &Value, sessions: &mut Sessions) -> Result<Value
 
 fn scanmem_freeze_value(args: &Value, sessions: &mut Sessions) -> Result<Value, String> {
     linux_only("scanmem backend")?;
+    let pid = valid_live_pid(args)?;
+    let current_value = valid_value_arg(args, "current_value")?;
+    let freeze_value = valid_value_arg(args, "freeze_value")?;
+    let persistent = args.get("persistent").and_then(Value::as_bool) == Some(true);
+    let dry_run = args.get("dry_run").and_then(Value::as_bool) == Some(true);
+    let max_writes = args.get("max_writes").and_then(Value::as_u64).unwrap_or(1);
+
     let mut write_args = args.clone();
     if let Some(obj) = write_args.as_object_mut() {
-        if let Some(v) = obj.remove("freeze_value") {
-            obj.insert("new_value".to_string(), v);
-        }
+        obj.insert("new_value".to_string(), json!(freeze_value.clone()));
     }
-    let res = scanmem_write_selected(&write_args, sessions)?;
-    let pid = valid_pid(args)?;
-    let freeze_value = valid_value_arg(args, "freeze_value")?;
-    sessions.entry(pid).or_insert(new_session(pid)).frozen_value = Some(freeze_value.clone());
+
+    if !persistent || dry_run {
+        let res = scanmem_write_selected(&write_args, sessions)?;
+        let session = sessions.entry(pid).or_insert_with(|| new_session(pid));
+        session.frozen_value = Some(freeze_value.clone());
+        session.freeze_loop = None;
+        return Ok(tool_ok(
+            "Freeze state recorded after guarded write.",
+            json!({ "pid": pid, "frozen_value": freeze_value, "write_result": res, "persistent_loop": false }),
+            Some("Call scanmem_unfreeze_value to clear the freeze marker."),
+        ));
+    }
+
+    if args.get("confirm_write").and_then(Value::as_bool) != Some(true) {
+        return Err("confirm_write must be true because this changes process memory".to_string());
+    }
+    let interval_ms = freeze_interval_ms(args);
+    let (loop_handle, match_count) = start_freeze_loop(
+        pid,
+        current_value.clone(),
+        freeze_value.clone(),
+        max_writes,
+        interval_ms,
+    )?;
+    let session = sessions.entry(pid).or_insert_with(|| new_session(pid));
+    session.frozen_value = Some(freeze_value.clone());
+    session.freeze_loop = Some(loop_handle);
     Ok(tool_ok(
-        "Freeze state recorded after guarded write.",
-        json!({ "pid": pid, "frozen_value": freeze_value, "write_result": res, "persistent_loop": false }),
-        Some("Call scanmem_unfreeze_value to clear the freeze marker."),
+        "Persistent freeze loop started.",
+        json!({ "pid": pid, "current_value": current_value, "frozen_value": freeze_value, "match_count": match_count, "max_writes": max_writes, "interval_ms": interval_ms, "persistent_loop": true }),
+        Some("Call scanmem_unfreeze_value or session_close to stop the loop."),
+    ))
+}
+
+fn freeze_interval_ms(args: &Value) -> u64 {
+    args.get("interval_ms")
+        .and_then(Value::as_u64)
+        .map(|n| n.clamp(100, 10_000))
+        .unwrap_or(1000)
+}
+
+// ponytail: persistent freeze is a best-effort scanmem `set` loop. Add address-level
+// writes + watchdog only if scanmem latency/hangs become a real issue.
+fn start_freeze_loop(
+    pid: u64,
+    current_value: String,
+    freeze_value: String,
+    max_writes: u64,
+    interval_ms: u64,
+) -> Result<(FreezeLoop, usize), String> {
+    let (mut proc, _banner) = spawn_scanmem(pid)?;
+    let preview = scanmem_send(&mut proc, &format!("{current_value}\nlist"))?;
+    let match_count = count_matches(&preview);
+    if match_count == 0 {
+        return Err("no scan matches found; freeze blocked".to_string());
+    }
+    if match_count as u64 > max_writes {
+        return Err(format!(
+            "{match_count} matches exceed max_writes={max_writes}; freeze blocked"
+        ));
+    }
+
+    let command = format!("set {freeze_value}");
+    let _ = scanmem_send(&mut proc, &command)?;
+    let stop = Arc::new(AtomicBool::new(false));
+    let thread_stop = Arc::clone(&stop);
+    let thread = thread::spawn(move || {
+        while !thread_stop.load(Ordering::Relaxed) {
+            if scanmem_send(&mut proc, &command).is_err() {
+                break;
+            }
+            for _ in 0..interval_ms.div_ceil(100) {
+                if thread_stop.load(Ordering::Relaxed) {
+                    return;
+                }
+                thread::sleep(Duration::from_millis(100));
+            }
+        }
+    });
+    Ok((
+        FreezeLoop {
+            stop,
+            thread: Some(thread),
+        },
+        match_count,
     ))
 }
 
 fn scanmem_unfreeze_value(args: &Value, sessions: &mut Sessions) -> Result<Value, String> {
     let pid = valid_pid(args)?;
-    let old = sessions.get_mut(&pid).and_then(|s| s.frozen_value.take());
+    let (old, loop_stopped) = sessions
+        .get_mut(&pid)
+        .map(|s| (s.frozen_value.take(), s.freeze_loop.take().is_some()))
+        .unwrap_or((None, false));
     Ok(tool_ok(
         "Freeze state cleared.",
-        json!({ "pid": pid, "was_frozen": old.is_some(), "old_frozen_value": old }),
+        json!({ "pid": pid, "was_frozen": old.is_some(), "old_frozen_value": old, "persistent_loop_stopped": loop_stopped }),
         None,
     ))
 }
@@ -1565,6 +1673,7 @@ fn workspace_set_active(args: &Value, state: &mut AppState) -> Result<Value, Str
     if !root.exists() && !Path::new(ARTIFACT_ROOT).join(&workspace).exists() {
         return Err(format!("workspace not found: {workspace}"));
     }
+    save_active_workspace(&workspace)?;
     state.active_workspace = Some(workspace.clone());
     let status = artifact_status(&root)?;
     Ok(tool_ok(
@@ -1572,11 +1681,33 @@ fn workspace_set_active(args: &Value, state: &mut AppState) -> Result<Value, Str
         json!({
             "active_workspace": workspace,
             "root": root.to_string_lossy(),
+            "state_file": ACTIVE_WORKSPACE_FILE,
             "ready": status["ready"],
             "files": status["files"],
         }),
         Some("IL2CPP tools will use this workspace when no root/game/workspace is passed."),
     ))
+}
+
+fn workspace_clear_active(state: &mut AppState) -> Result<Value, String> {
+    let old = state.active_workspace.take();
+    let existed = fs::remove_file(ACTIVE_WORKSPACE_FILE).is_ok();
+    Ok(tool_ok(
+        "Active workspace cleared.",
+        json!({ "old_active_workspace": old, "state_file_removed": existed, "state_file": ACTIVE_WORKSPACE_FILE }),
+        Some("Pass workspace/game explicitly, or call workspace_set_active again."),
+    ))
+}
+
+fn load_active_workspace() -> Option<String> {
+    fs::read_to_string(ACTIVE_WORKSPACE_FILE)
+        .ok()
+        .and_then(|s| checked_workspace_name(s.trim()).ok())
+}
+
+fn save_active_workspace(workspace: &str) -> Result<(), String> {
+    fs::create_dir_all(ARTIFACT_ROOT).map_err(|e| e.to_string())?;
+    fs::write(ACTIVE_WORKSPACE_FILE, workspace).map_err(|e| e.to_string())
 }
 
 fn il2cpp_artifacts_status(args: &Value, active_workspace: Option<&str>) -> Result<Value, String> {
@@ -2903,10 +3034,7 @@ fn scanmem_pick_match(args: &Value) -> Result<Value, String> {
         .get("index")
         .and_then(Value::as_u64)
         .ok_or_else(|| "index is required".to_string())? as usize;
-    let matches: Vec<&str> = output
-        .lines()
-        .filter(|line| line.contains(']') && line.contains("0x"))
-        .collect();
+    let matches: Vec<&str> = output.lines().filter(|line| is_match_line(line)).collect();
     let picked = matches
         .get(index)
         .ok_or_else(|| "match index out of range".to_string())?;
@@ -2975,12 +3103,13 @@ fn new_session(pid: u64) -> Session {
         last_output: String::new(),
         last_match_count: 0,
         frozen_value: None,
+        freeze_loop: None,
         proc: None,
     }
 }
 
 fn session_json(session: &Session) -> Value {
-    json!({ "pid": session.pid, "created_at": session.created_at, "last_seen": session.last_seen, "last_command": session.last_command, "last_output": session.last_output, "last_match_count": session.last_match_count, "frozen_value": session.frozen_value, "timeout_secs": SESSION_TIMEOUT_SECS })
+    json!({ "pid": session.pid, "created_at": session.created_at, "last_seen": session.last_seen, "last_command": session.last_command, "last_output": session.last_output, "last_match_count": session.last_match_count, "frozen_value": session.frozen_value, "persistent_freeze": session.freeze_loop.is_some(), "timeout_secs": SESSION_TIMEOUT_SECS })
 }
 
 fn touch_session_on(sess: &mut Session, command: &str, output: &str) {
@@ -3019,10 +3148,20 @@ fn valid_live_pid(args: &Value) -> Result<u64, String> {
     Ok(pid)
 }
 fn count_matches(output: &str) -> usize {
-    output
-        .lines()
-        .filter(|line| line.contains(']') && line.contains("0x"))
-        .count()
+    output.lines().filter(|line| is_match_line(line)).count()
+}
+
+fn is_match_line(line: &str) -> bool {
+    let line = line.trim_start();
+    let Some(rest) = line.strip_prefix('[') else {
+        return false;
+    };
+    let Some((index, rest)) = rest.split_once(']') else {
+        return false;
+    };
+    !index.trim().is_empty()
+        && index.trim().chars().all(|c| c.is_ascii_digit())
+        && rest.contains(',')
 }
 
 fn valid_value_arg(args: &Value, name: &str) -> Result<String, String> {
@@ -3294,6 +3433,9 @@ mod tests {
             .any(|tool| tool["name"] == "workspace_set_active"));
         assert!(tools
             .iter()
+            .any(|tool| tool["name"] == "workspace_clear_active"));
+        assert!(tools
+            .iter()
             .any(|tool| tool["name"] == "reverse_report_create"));
         assert!(tools
             .iter()
@@ -3419,6 +3561,30 @@ mod tests {
     }
 
     #[test]
+    fn unfreeze_clears_persistent_marker() {
+        let stop = Arc::new(AtomicBool::new(false));
+        let thread_stop = Arc::clone(&stop);
+        let mut sessions = Sessions::new();
+        sessions.insert(123, new_session(123));
+        let session = sessions.get_mut(&123).unwrap();
+        session.frozen_value = Some("999".into());
+        session.freeze_loop = Some(FreezeLoop {
+            stop,
+            thread: Some(thread::spawn(move || {
+                while !thread_stop.load(Ordering::Relaxed) {
+                    thread::sleep(Duration::from_millis(1));
+                }
+            })),
+        });
+
+        let res = scanmem_unfreeze_value(&json!({"pid": 123}), &mut sessions).unwrap();
+        assert_eq!(res["data"]["persistent_loop_stopped"], true);
+        assert!(sessions.get(&123).unwrap().freeze_loop.is_none());
+        assert_eq!(freeze_interval_ms(&json!({"interval_ms": 1})), 100);
+        assert_eq!(freeze_interval_ms(&json!({"interval_ms": 20_000})), 10_000);
+    }
+
+    #[test]
     fn validates_value_types() {
         assert_eq!(
             valid_value_type(&json!({"value_type":"float"})).unwrap(),
@@ -3426,6 +3592,14 @@ mod tests {
         );
         assert!(valid_value_type(&json!({"value_type":"bad"})).is_err());
         assert_eq!(typed_value("ff", "hex"), "0xff");
+    }
+
+    #[test]
+    fn counts_scanmem_match_lines_without_0x_prefix() {
+        let output = "[ 0] 7fc6a0164e28,  3 + 64e28, misc, 42424242, [I64 I32 ]\ninfo: ok";
+        assert_eq!(count_matches(output), 1);
+        assert!(is_match_line("[12] 0x1234, misc"));
+        assert!(!is_match_line("info: we currently have 5 matches."));
     }
 
     #[test]
@@ -3614,6 +3788,24 @@ mod tests {
         assert!(checked_workspace_name("").is_err());
         assert!(checked_workspace_name("../x").is_err());
         assert!(checked_workspace_name("a/b").is_err());
+    }
+
+    #[test]
+    fn persists_and_clears_active_workspace_name() {
+        let old = fs::read_to_string(ACTIVE_WORKSPACE_FILE).ok();
+        save_active_workspace("phase14-test").unwrap();
+        assert_eq!(load_active_workspace().as_deref(), Some("phase14-test"));
+        let mut state = new_state();
+        assert_eq!(state.active_workspace.as_deref(), Some("phase14-test"));
+        let cleared = workspace_clear_active(&mut state).unwrap();
+        assert_eq!(cleared["data"]["state_file_removed"], true);
+        assert!(load_active_workspace().is_none());
+        match old {
+            Some(value) => fs::write(ACTIVE_WORKSPACE_FILE, value).unwrap(),
+            None => {
+                fs::remove_file(ACTIVE_WORKSPACE_FILE).ok();
+            }
+        }
     }
 
     #[test]
