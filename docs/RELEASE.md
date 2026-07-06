@@ -1,5 +1,28 @@
 # Release notes
 
+## v0.3.0
+
+### Included
+
+- Persistent freeze loop via `scanmem_freeze_value` with `persistent:true` and `interval_ms`.
+- Persistent active workspace state in `reverse/.active-workspace`.
+- `workspace_clear_active` tool.
+- Fixed scanmem match counting for address lines without `0x` prefix.
+- Project-local Claude Code skill and auto-use rules for cheat-engine-mcp workflows.
+- Install/rules docs for users.
+
+### Verification
+
+```bash
+cargo fmt --check
+cargo test
+cargo check
+cargo build --release
+(cd examples/dummy-target && cargo check)
+```
+
+Live MCP smoke covered 72 advertised tools with 79 passing checks.
+
 ## v0.2.0
 
 ### Included

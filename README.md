@@ -170,7 +170,7 @@ Bisa juga per-call tanpa active workspace:
 {"game":"game","query":"Health"}
 ```
 
-- `workspace_list`, `workspace_status`, `workspace_set_active`
+- `workspace_list`, `workspace_status`, `workspace_set_active`, `workspace_clear_active` (active workspace disimpan lokal di `reverse/.active-workspace`)
 - `il2cpp_artifacts_status`
 - `il2cpp_method_search`, `il2cpp_string_search`, `il2cpp_script_search`
 - `il2cpp_class_search`, `il2cpp_field_search`, `il2cpp_method_detail`, `il2cpp_find_by_rva`, `il2cpp_related_methods`
@@ -195,6 +195,15 @@ Entry table bisa simpan hasil reverse (`module` + `rva`, `method_signature`, `sc
 printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"table_add_entry","arguments":{"table":"game-proc","name":"health","scan":"100","value_type":"int32","module":"GameAssembly.dll","rva":"0x1234","method_signature":"Hero::Health","scan_query":"Health"}}}' | cargo run -q
 printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"table_resolve_entries","arguments":{"table":"game-proc","pid":1234}}}' | cargo run -q
 printf '%s\n' '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"table_validate_entries","arguments":{"table":"game-proc","pid":1234,"read_values":true}}}' | cargo run -q
+```
+
+## Freeze persistent
+
+Default `scanmem_freeze_value` write sekali. Tambah `persistent:true` untuk loop sampai `scanmem_unfreeze_value` / `session_close`.
+
+```bash
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"scanmem_freeze_value","arguments":{"pid":1234,"current_value":"100","freeze_value":"999","confirm_write":true,"max_writes":1,"persistent":true,"interval_ms":1000}}}' | cargo run -q
+printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"scanmem_unfreeze_value","arguments":{"pid":1234}}}' | cargo run -q
 ```
 
 ## Tool utama
