@@ -209,12 +209,139 @@ Contoh config:
 6. Cheat Table Lite
 7. Freeze value
 
+## Phase 11 — Module/RVA Helpers
+
+Tersedia:
+
+- [x] `process_list_modules`
+- [x] `process_module_base`
+- [x] `rva_to_address`
+
+Tujuan: hitung runtime address dari `/proc/<pid>/maps` tanpa manual `module_base + RVA`.
+
+## Phase 12 — GDB Hook Lite
+
+Tersedia:
+
+- [x] `gdb_hook_preview`
+- [x] `gdb_hook_start`
+- [x] `gdb_hook_stop`
+
+Tujuan: single-breakpoint hook untuk IL2CPP method dengan guard `confirm_hook`.
+
+## Phase 13 — Local Reverse Artifact Tools
+
+Tersedia:
+
+- [x] `il2cpp_artifacts_status`
+- [x] `il2cpp_method_search`
+- [x] `il2cpp_string_search`
+- [x] `il2cpp_script_search`
+
+Tujuan: pakai dump lokal dari folder ignored `reverse/` tanpa ikut push GitHub.
+
 ## Fitur Selanjutnya yang Disarankan
 
-Lanjut buat:
-
 ```text
-scanmem session mode + reset/next scan
+Generic Game Workspace
 ```
 
-Alasan: tanpa session, fitur scan bertahap seperti Cheat Engine belum enak dipakai.
+## Phase 14 — Generic Game Workspace
+
+Tujuan: satu folder per game di `reverse/<game>/tools`, bukan hardcoded game tertentu.
+
+- [x] `workspace_list`
+- [x] `workspace_status`
+- [x] `workspace_set_active`
+- [x] Root artifact pakai `game` / `workspace`, bukan path manual
+- [x] Auto-detect `dump.cs`, `script.json`, `stringliteral.json`
+
+Catatan: active workspace masih in-memory di proses MCP; artifact tetap lokal ignored di `reverse/`.
+
+Alasan: MCP harus enak dipakai lintas game, bukan cuma satu target.
+
+## Phase 15 — Better IL2CPP Search UX
+
+Tujuan: AI cepat menemukan method yang bisa di-hook.
+
+- [x] `il2cpp_class_search`
+- [x] `il2cpp_field_search`
+- [x] `il2cpp_method_detail`
+- [x] `il2cpp_find_by_rva`
+- [x] `il2cpp_related_methods` dari nama class/namespace
+- [x] Result selalu include `rva`, `signature`, `class`, `namespace`, `line`
+
+Alasan: sekarang search sudah ada, tapi belum cukup enak untuk investigasi cepat.
+
+## Phase 16 — Address + Disassembly Helpers
+
+Tujuan: verifikasi RVA sebelum hook.
+
+- [x] `process_read_maps`
+- [x] `address_to_rva`
+- [x] `rva_disassemble_preview`
+- [x] `gdb_disassemble_address`
+- [x] `gdb_breakpoint_probe_preview`
+
+Alasan: sebelum hook, AI perlu cek alamat benar dan instruksi masuk akal.
+
+## Phase 17 — Safe Memory Read Tools
+
+Tujuan: baca memory kecil, bukan write bebas.
+
+- [x] `memory_read_bytes`
+- [x] `memory_read_int`
+- [x] `memory_read_float`
+- [x] `memory_read_string`
+- [x] Wajib live PID + max byte limit
+- [x] Tidak ada write address bebas dulu
+
+Alasan: membaca memory lebih aman dan sangat berguna untuk validasi pointer/field.
+
+## Phase 18 — Watchlist / Cheat Table Upgrade
+
+Tujuan: table jadi berguna untuk sesi kerja.
+
+- [x] Entry bisa simpan `module + rva`
+- [x] Entry bisa simpan `method signature`
+- [x] Entry bisa simpan `scan query`
+- [x] `table_resolve_entries`
+- [x] `table_validate_entries`
+
+Alasan: MCP butuh state yang bisa dibuka lagi, bukan cuma scan sekali.
+
+## Phase 19 — Hook Probe Mode
+
+Tujuan: test method hit tanpa mengubah game.
+
+- [x] `gdb_probe_preview`
+- [x] `gdb_probe_start`
+- [x] `gdb_probe_stop`
+- [x] Auto-log registers terbatas
+- [x] Auto-stop setelah N hits
+
+Alasan: untuk reverse, probe read-only lebih aman daripada langsung patch argumen.
+
+## Phase 20 — Multi-breakpoint Hook Manager
+
+Tujuan: dukung kasus kompleks seperti godmode / multi-method.
+
+- [x] `gdb_hook_group_preview`
+- [x] `gdb_hook_group_start`
+- [x] `gdb_hook_group_stop`
+- [x] Banyak breakpoint dalam satu script
+- [x] Tetap command whitelist dan `confirm_hook:true`
+
+Alasan: beberapa fitur game butuh lebih dari satu breakpoint.
+
+## Phase 21 — Export Report untuk AI
+
+Tujuan: hasil reverse bisa diringkas aman.
+
+- [x] `reverse_report_create`
+- [x] `reverse_report_add_finding`
+- [x] `reverse_report_list`
+- [x] Export markdown lokal ignored
+- [x] Tidak push artifact private
+
+Alasan: AI perlu catatan kerja lintas sesi tanpa commit dump besar.

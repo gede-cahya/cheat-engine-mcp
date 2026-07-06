@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.asset }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: x86_64-unknown-linux-gnu
+            bin: cheat-engine-mcp
+            package: tar.gz
+          - os: windows-latest
+            asset: x86_64-pc-windows-msvc
+            bin: cheat-engine-mcp.exe
+            package: zip
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release
+      - name: Package Linux
+        if: matrix.package == 'tar.gz'
+        run: |
+          mkdir -p dist
+          cp target/release/${{ matrix.bin }} dist/
+          tar -C dist -czf cheat-engine-mcp-${{ github.ref_name }}-${{ matrix.asset }}.tar.gz ${{ matrix.bin }}
+      - name: Package Windows
+        if: matrix.package == 'zip'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item target/release/${{ matrix.bin }} dist/
+          Compress-Archive -Path dist/${{ matrix.bin }} -DestinationPath cheat-engine-mcp-${{ github.ref_name }}-${{ matrix.asset }}.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cheat-engine-mcp-${{ matrix.asset }}
+          path: cheat-engine-mcp-${{ github.ref_name }}-${{ matrix.asset }}.*
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*

@@ -1,5 +1,30 @@
 # Release notes
 
+## v0.2.0
+
+### Included
+
+- Phase 21 reverse reports: `reverse_report_create`, `reverse_report_add_finding`, `reverse_report_list`.
+- Local ignored JSON + Markdown reports under `reverse/<game>/tools/reports/`.
+- Windows release binary that runs MCP portable tools.
+- GitHub Actions CI for Linux and Windows.
+- Tag-triggered release workflow for Linux `.tar.gz` and Windows `.zip` assets.
+
+### Platform notes
+
+- Linux: full `scanmem`, `/proc`, memory read, and GDB helper support.
+- Windows: portable MCP/file tools only for now; process memory, `scanmem`, and GDB tools return unsupported errors.
+
+### Verification
+
+```bash
+cargo fmt --check
+cargo test
+cargo check
+cargo build --release
+(cd examples/dummy-target && cargo check)
+```
+
 ## v0.1.0
 
 Initial release of `cheat-engine-mcp`.
