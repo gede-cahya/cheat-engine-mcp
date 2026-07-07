@@ -4,3 +4,5 @@
 .DS_Store
 *.log
 /reverse/
+/.venv/
+/graphify-out/
