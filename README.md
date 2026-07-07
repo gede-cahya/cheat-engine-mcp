@@ -3,6 +3,8 @@
 [![CI](https://github.com/gede-cahya/cheat-engine-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/gede-cahya/cheat-engine-mcp/actions/workflows/ci.yml)
 [![Release](https://github.com/gede-cahya/cheat-engine-mcp/actions/workflows/release.yml/badge.svg)](https://github.com/gede-cahya/cheat-engine-mcp/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Sponsor Gede Cahya](https://img.shields.io/badge/Sponsor-gede--cahya-pink?logo=github-sponsors)](https://github.com/sponsors/gede-cahya)
+
 
 **AI-powered game memory scanner and reverse engineering toolkit** — an MCP (Model Context Protocol) server that gives AI coding assistants direct access to `scanmem`, `gdb`, and IL2CPP reverse engineering tools.
 
@@ -42,7 +44,7 @@ sudo apt update && sudo apt install -y scanmem gdb cargo
 brew install rust
 ```
 
-### 2. Build & Install
+### 2. Install on Linux
 
 ```bash
 git clone https://github.com/gede-cahya/cheat-engine-mcp.git
@@ -50,65 +52,62 @@ cd cheat-engine-mcp
 ./install.sh
 ```
 
-This builds the release binary and installs it to `~/.local/bin/cheat-engine-mcp`.
-
-### 3. Connect to Your AI Assistant
-
-Choose your AI assistant and follow [Install cheat-engine-mcp ke MCP Client](docs/INSTALL_MCP_CLIENTS.md).
-
-| AI Assistant | Config | Skill support |
-|---|---|---|
-| **Google Antigravity** | `~/.gemini/config/settings.json` | Copy `SKILL.md` into Antigravity/Gemini skills folder if enabled |
-| **Claude Code** | `.claude/settings.json` per repo | `.claude/skills/cheat-engine-mcp/SKILL.md` |
-| **Claude Desktop** | `claude_desktop_config.json` | Use project instructions / prompt installer |
-| **Cursor / Windsurf / Generic MCP** | Client MCP config file | Use the prompt installer or custom rules |
-
-**Linux one-liner:**
+This builds the release binary and installs it to:
 
 ```bash
-git clone https://github.com/gede-cahya/cheat-engine-mcp.git
-cd cheat-engine-mcp && ./install.sh
+~/.local/bin/cheat-engine-mcp
 ```
 
-**Windows build:**
+Check it:
 
-```powershell
-git clone https://github.com/gede-cahya/cheat-engine-mcp.git
-cd cheat-engine-mcp; cargo build --release
+```bash
+~/.local/bin/cheat-engine-mcp --help
 ```
 
-Need an agent to install it for you? Copy [docs/SKILL_INSTALL_PROMPT.md](docs/SKILL_INSTALL_PROMPT.md) into Antigravity, Claude Code, or another coding agent.
-
----
-
-## 🔧 MCP Client Configuration
-
-All MCP-compatible clients use the same server binary. The only difference is where the config file lives.
-
-### Config Format
+Add this MCP config to your client:
 
 ```json
 {
   "mcpServers": {
     "cheat-engine-mcp": {
-      "command": "/home/USER/.local/bin/cheat-engine-mcp"
+      "command": "/home/YOUR_USER/.local/bin/cheat-engine-mcp"
     }
   }
 }
 ```
 
-### Config File Locations
+### 3. Install on Windows
 
-| Client | Linux | macOS | Windows |
-|---|---|---|---|
-| **Antigravity** | `~/.gemini/config/settings.json` | `~/.gemini/config/settings.json` | `%USERPROFILE%\.gemini\config\settings.json` |
-| **Claude Code** | `.claude/settings.json` (per-repo) | Same | Same |
-| **Claude Desktop** | `~/.config/Claude/claude_desktop_config.json` | `~/Library/Application Support/Claude/claude_desktop_config.json` | `%APPDATA%\Claude\claude_desktop_config.json` |
-| **Cursor** | `.cursor/mcp.json` (per-project) | Same | Same |
+Windows support is limited to portable/non-Linux tools: `ping`, cheat tables, workspaces, IL2CPP artifact search, and reports. Memory scanning with `scanmem`, `/proc` process memory, and GDB attach tools are Linux-only.
 
-### Windows Note
+Install Rust first:
 
-Windows binary supports **portable tools only**: `ping`, cheat tables, workspaces, IL2CPP artifact search, and reports. Memory scanning (`scanmem`), process memory, `/proc`, and GDB tools are **Linux-only**.
+```powershell
+winget install Rustlang.Rustup
+```
+
+Build the MCP server:
+
+```powershell
+git clone https://github.com/gede-cahya/cheat-engine-mcp.git
+cd cheat-engine-mcp
+cargo build --release
+```
+
+Copy the binary to a stable location:
+
+```powershell
+New-Item -ItemType Directory -Force C:\Tools | Out-Null
+Copy-Item .\target\release\cheat-engine-mcp.exe C:\Tools\cheat-engine-mcp.exe
+```
+
+Check it:
+
+```powershell
+C:\Tools\cheat-engine-mcp.exe --help
+```
+
+Add this MCP config to your client:
 
 ```json
 {
@@ -119,6 +118,34 @@ Windows binary supports **portable tools only**: `ping`, cheat tables, workspace
   }
 }
 ```
+
+### 4. Connect to Your AI Assistant
+
+Choose your AI assistant and follow [Install cheat-engine-mcp ke MCP Client](docs/INSTALL_MCP_CLIENTS.md).
+
+| AI Assistant | Config | Skill support |
+|---|---|---|
+| **Google Antigravity** | `~/.gemini/config/settings.json` or `%USERPROFILE%\.gemini\config\settings.json` | Copy `SKILL.md` into Antigravity/Gemini skills folder if enabled |
+| **Claude Code** | `.claude/settings.json` per repo | `.claude/skills/cheat-engine-mcp/SKILL.md` |
+| **Claude Desktop** | `claude_desktop_config.json` | Use project instructions / prompt installer |
+| **Cursor / Windsurf / Generic MCP** | Client MCP config file | Use the prompt installer or custom rules |
+
+Need an agent to install it for you? Copy [docs/SKILL_INSTALL_PROMPT.md](docs/SKILL_INSTALL_PROMPT.md) into Antigravity, Claude Code, or another coding agent.
+
+---
+
+## 🔧 MCP Client Configuration
+
+All MCP-compatible clients use the same server binary. The only difference is where the config file lives.
+
+### Config File Locations
+
+| Client | Linux | macOS | Windows |
+|---|---|---|---|
+| **Antigravity** | `~/.gemini/config/settings.json` | `~/.gemini/config/settings.json` | `%USERPROFILE%\.gemini\config\settings.json` |
+| **Claude Code** | `.claude/settings.json` (per-repo) | Same | Same |
+| **Claude Desktop** | `~/.config/Claude/claude_desktop_config.json` | `~/Library/Application Support/Claude/claude_desktop_config.json` | `%APPDATA%\Claude\claude_desktop_config.json` |
+| **Cursor** | `.cursor/mcp.json` (per-project) | Same | Same |
 
 ---
 
